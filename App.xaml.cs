@@ -58,7 +58,11 @@ public partial class App : Application
         _tray.TrayMouseMove += OnTrayMouseMove;
         _tray.TrayLeftMouseDown += OnTrayLeftClick;
         _tray.PreviewTrayContextMenuOpen += (_, _) => SyncAutoStartCheck();
-        _tray.TrayPopupOpen += (_, _) => CancelHoverClose();
+        _tray.TrayPopupOpen += (_, _) =>
+        {
+            CancelHoverClose();
+            HookPopupClosed();
+        };
 
         _popup = (TreePopup)_tray.TrayPopup;
         _popup.Items = _items;
@@ -85,9 +89,12 @@ public partial class App : Application
         _config.Reload();
     }
 
+    private int _moveCount;
     private void OnTrayMouseMove(object? sender, RoutedEventArgs e)
     {
-        if (_pinned) return;
+        Interlocked.Increment(ref _moveCount);
+        if (_moveCount == 1) DiagLog("first TrayMouseMove fired");
+        if (_pinned) { DiagLog("ignored: pinned"); return; }
         if (IsTrayPopupOpen())
         {
             CancelHoverClose();
@@ -99,8 +106,20 @@ public partial class App : Application
         OpenPopup();
     }
 
+    private static void DiagLog(string msg)
+    {
+        try
+        {
+            System.IO.File.AppendAllText(
+                AppPaths.ErrorLog,
+                $"[{DateTime.Now:HH:mm:ss.fff}] {msg}{Environment.NewLine}");
+        }
+        catch { }
+    }
+
     private void OnTrayLeftClick(object? sender, RoutedEventArgs e)
     {
+        DiagLog("TrayLeftMouseDown fired");
         if (_tray is null) return;
         if (IsTrayPopupOpen())
         {
@@ -139,6 +158,20 @@ public partial class App : Application
     private void CancelHoverClose() => _hoverCloseTimer?.Stop();
 
     private bool IsTrayPopupOpen() => _tray?.TrayPopupResolved?.IsOpen ?? false;
+
+    private bool _popupClosedHooked;
+    private void HookPopupClosed()
+    {
+        if (_popupClosedHooked || _tray?.TrayPopupResolved is not { } popup) return;
+        popup.Closed += (_, _) =>
+        {
+            // Reset state whenever the popup closes for any reason
+            // (focus loss, click-outside, our own CloseTrayPopup, etc.).
+            _pinned = false;
+            _hoverCloseTimer?.Stop();
+        };
+        _popupClosedHooked = true;
+    }
 
     private void OnConfigLoaded(List<TreeNode> nodes)
     {
