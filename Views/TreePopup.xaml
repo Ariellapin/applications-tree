@@ -28,19 +28,47 @@
                            FontWeight="SemiBold"
                            VerticalAlignment="Center"
                            Foreground="#404040"/>
-                <Button Grid.Column="1"
-                        x:Name="AddBtn"
-                        Content="+"
-                        ToolTip="Add an app, file, folder or URL"
-                        Width="22" Height="22"
-                        Padding="0"
-                        FontSize="16"
-                        FontWeight="Bold"
-                        Foreground="#404040"
-                        Background="Transparent"
-                        BorderBrush="#C0C0C0"
-                        Cursor="Hand"
-                        Click="OnAddClick"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="AddBtn"
+                            Content="+"
+                            ToolTip="Add an app, file, folder or URL"
+                            Width="22" Height="22"
+                            Padding="0"
+                            FontSize="16"
+                            FontWeight="Bold"
+                            Foreground="#404040"
+                            Background="Transparent"
+                            BorderBrush="#C0C0C0"
+                            Cursor="Hand"
+                            Click="OnAddClick"/>
+                    <Button x:Name="MenuBtn"
+                            Content="&#8942;"
+                            ToolTip="Menu"
+                            Width="22" Height="22"
+                            Margin="4,0,0,0"
+                            Padding="0"
+                            FontSize="16"
+                            FontWeight="Bold"
+                            Foreground="#404040"
+                            Background="Transparent"
+                            BorderBrush="#C0C0C0"
+                            Cursor="Hand"
+                            Click="OnMenuClick">
+                        <Button.ContextMenu>
+                            <ContextMenu x:Name="MenuPopup" Placement="Bottom">
+                                <MenuItem Header="Reload config" Click="OnReloadClick"/>
+                                <MenuItem Header="Open config file" Click="OnOpenConfigClick"/>
+                                <Separator/>
+                                <MenuItem Header="Start with Windows"
+                                          IsCheckable="True"
+                                          x:Name="AutoStartMenuItem"
+                                          Click="OnAutoStartClick"/>
+                                <Separator/>
+                                <MenuItem Header="Exit" Click="OnExitClick"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                </StackPanel>
             </Grid>
 
             <TreeView x:Name="Tree"
@@ -53,22 +81,107 @@
                 <TreeView.Resources>
                     <HierarchicalDataTemplate DataType="{x:Type m:FolderNode}"
                                               ItemsSource="{Binding Children}">
-                        <StackPanel Orientation="Horizontal" Margin="0,1">
-                            <Image Source="{Binding Icon}" Width="16" Height="16"
-                                   Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
-                        </StackPanel>
+                        <Border Background="Transparent"
+                                ToolTip="{Binding ToolTipText}"
+                                Padding="0,1">
+                            <Border.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Rename"
+                                              Click="OnRenameClick"/>
+                                    <MenuItem Header="Change icon..."
+                                              Click="OnChangeIconClick"/>
+                                    <Separator/>
+                                    <MenuItem Header="Delete"
+                                              Click="OnDeleteClick"/>
+                                </ContextMenu>
+                            </Border.ContextMenu>
+                            <StackPanel Orientation="Horizontal">
+                                <Image Source="{Binding Icon}" Width="16" Height="16"
+                                       Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=Explicit}"
+                                         VerticalAlignment="Center"
+                                         MinWidth="100"
+                                         Padding="2,0"
+                                         IsVisibleChanged="OnRenameBoxVisibleChanged"
+                                         KeyDown="OnRenameBoxKeyDown"
+                                         LostFocus="OnRenameBoxLostFocus">
+                                    <TextBox.Style>
+                                        <Style TargetType="TextBox">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBox.Style>
+                                </TextBox>
+                            </StackPanel>
+                        </Border>
                     </HierarchicalDataTemplate>
 
                     <DataTemplate DataType="{x:Type m:ItemNode}">
                         <Border Background="Transparent"
+                                ToolTip="{Binding ToolTipText}"
                                 MouseLeftButtonUp="OnItemClick"
                                 Cursor="Hand"
                                 Padding="0,1">
+                            <Border.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Rename"
+                                              Click="OnRenameClick"/>
+                                    <MenuItem Header="Change icon..."
+                                              Click="OnChangeIconClick"/>
+                                    <Separator/>
+                                    <MenuItem Header="Delete"
+                                              Click="OnDeleteClick"/>
+                                </ContextMenu>
+                            </Border.ContextMenu>
                             <StackPanel Orientation="Horizontal">
                                 <Image Source="{Binding Icon}" Width="16" Height="16"
                                        Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=Explicit}"
+                                         VerticalAlignment="Center"
+                                         MinWidth="100"
+                                         Padding="2,0"
+                                         IsVisibleChanged="OnRenameBoxVisibleChanged"
+                                         KeyDown="OnRenameBoxKeyDown"
+                                         LostFocus="OnRenameBoxLostFocus">
+                                    <TextBox.Style>
+                                        <Style TargetType="TextBox">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBox.Style>
+                                </TextBox>
                             </StackPanel>
                         </Border>
                     </DataTemplate>

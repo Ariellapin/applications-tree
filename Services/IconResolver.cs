@@ -50,6 +50,103 @@ public sealed class IconResolver
     private ImageSource GetGenericFileIcon() =>
         ShellIconForAttributes(FILE_ATTRIBUTE_NORMAL) ?? CreateFallbackIcon(Colors.Gray);
 
+    /// <summary>
+    /// Loads an icon from "path,index" (Windows convention). Index optional; defaults to 0.
+    /// Environment variables in the path are expanded. Returns null on failure.
+    /// </summary>
+    public ImageSource? GetIconFromSource(string source, bool smallSize)
+    {
+        if (string.IsNullOrWhiteSpace(source)) return null;
+
+        var key = $"iconsrc:{smallSize}:{source}";
+        if (_cache.TryGetValue(key, out var hit)) return hit;
+
+        var (file, index) = ParseIconRef(source);
+        if (file is null) return null;
+
+        var icon = ExtractIconAt(file, index, smallSize);
+        if (icon is not null) _cache[key] = icon;
+        return icon;
+    }
+
+    /// <summary>
+    /// Enumerates all icons in a PE file (.exe/.dll/.ico) at the given size.
+    /// Returns list of (index, image) pairs.
+    /// </summary>
+    public static List<(int Index, ImageSource Image)> EnumerateIcons(string file, bool smallSize)
+    {
+        var result = new List<(int, ImageSource)>();
+        var expanded = Environment.ExpandEnvironmentVariables(file);
+        if (!File.Exists(expanded)) return result;
+
+        int count = ExtractIconEx(expanded, -1, null, null, 0);
+        if (count <= 0) return result;
+
+        // Extract in modest batches to keep handle pressure reasonable.
+        var large = new IntPtr[count];
+        var small = new IntPtr[count];
+        var got = ExtractIconEx(expanded, 0, large, small, (uint)count);
+        if (got <= 0) return result;
+
+        for (int i = 0; i < got; i++)
+        {
+            var h = smallSize ? small[i] : large[i];
+            if (h == IntPtr.Zero) continue;
+            try
+            {
+                result.Add((i, BitmapFromHIcon(h)));
+            }
+            catch { /* skip bad slot */ }
+        }
+
+        for (int i = 0; i < got; i++)
+        {
+            if (large[i] != IntPtr.Zero) DestroyIcon(large[i]);
+            if (small[i] != IntPtr.Zero) DestroyIcon(small[i]);
+        }
+        return result;
+    }
+
+    private static ImageSource? ExtractIconAt(string file, int index, bool smallSize)
+    {
+        var expanded = Environment.ExpandEnvironmentVariables(file);
+        if (!File.Exists(expanded)) return null;
+
+        var large = new IntPtr[1];
+        var small = new IntPtr[1];
+        var got = ExtractIconEx(expanded, index, large, small, 1);
+        if (got <= 0) return null;
+        try
+        {
+            var h = smallSize ? small[0] : large[0];
+            if (h == IntPtr.Zero) h = smallSize ? large[0] : small[0];
+            if (h == IntPtr.Zero) return null;
+            return BitmapFromHIcon(h);
+        }
+        finally
+        {
+            if (large[0] != IntPtr.Zero) DestroyIcon(large[0]);
+            if (small[0] != IntPtr.Zero) DestroyIcon(small[0]);
+        }
+    }
+
+    public static (string? File, int Index) ParseIconRef(string source)
+    {
+        if (string.IsNullOrWhiteSpace(source)) return (null, 0);
+        // Format: "path,index" — but paths can contain commas, so split on the LAST comma
+        // only if the trailing piece is a valid integer.
+        var idx = source.LastIndexOf(',');
+        if (idx > 0 && idx < source.Length - 1
+            && int.TryParse(source.AsSpan(idx + 1), out var i))
+        {
+            return (source[..idx].Trim(), i);
+        }
+        return (source.Trim(), 0);
+    }
+
+    public static string FormatIconRef(string file, int index) =>
+        index == 0 ? file : $"{file},{index}";
+
     private static ImageSource? ExtractFileIcon(string path)
     {
         try
@@ -125,6 +222,10 @@ public sealed class IconResolver
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes,
         ref SHFILEINFO psfi, uint cbFileInfo, uint uFlags);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern int ExtractIconEx(string lpszFile, int nIconIndex,
+        IntPtr[]? phIconLarge, IntPtr[]? phIconSmall, uint nIcons);
 
     [DllImport("user32.dll")]
     private static extern bool DestroyIcon(IntPtr hIcon);

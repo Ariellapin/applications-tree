@@ -81,7 +81,16 @@ public sealed class ConfigLoader : IDisposable
     {
         if (string.Equals(dto.Type, "folder", StringComparison.OrdinalIgnoreCase))
         {
-            var folder = new FolderNode { Name = dto.Name, Icon = _icons.GetFolderIcon() };
+            var folder = new FolderNode
+            {
+                Name = dto.Name,
+                IconSource = dto.IconSource,
+                IsExpanded = true,
+            };
+            folder.Icon = !string.IsNullOrWhiteSpace(dto.IconSource)
+                ? _icons.GetIconFromSource(dto.IconSource!, smallSize: true)
+                  ?? _icons.GetFolderIcon()
+                : _icons.GetFolderIcon();
             if (dto.Children is not null)
                 foreach (var child in dto.Children)
                     folder.Children.Add(Build(child));
@@ -95,14 +104,19 @@ public sealed class ConfigLoader : IDisposable
             ? System.IO.Path.GetFileNameWithoutExtension(expanded)
             : dto.Name;
 
-        return new ItemNode
+        var item = new ItemNode
         {
             Name = displayName,
             Path = expanded,
             RawPath = rawPath,
             Kind = kind,
-            Icon = _icons.GetIcon(expanded, kind),
+            IconSource = dto.IconSource,
         };
+        item.Icon = !string.IsNullOrWhiteSpace(dto.IconSource)
+            ? _icons.GetIconFromSource(dto.IconSource!, smallSize: true)
+              ?? _icons.GetIcon(expanded, kind)
+            : _icons.GetIcon(expanded, kind);
+        return item;
     }
 
     public static EntryKind ClassifyPath(string expanded)

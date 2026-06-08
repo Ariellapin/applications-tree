@@ -32,12 +32,14 @@ public static class ConfigSerializer
             Type = "folder",
             Name = f.Name,
             Children = f.Children.Select(ToDto).ToList(),
+            IconSource = string.IsNullOrWhiteSpace(f.IconSource) ? null : f.IconSource,
         },
         ItemNode i => new NodeDto
         {
             Type = "item",
             Name = i.Name,
             Path = string.IsNullOrEmpty(i.RawPath) ? i.Path : i.RawPath,
+            IconSource = string.IsNullOrWhiteSpace(i.IconSource) ? null : i.IconSource,
         },
         _ => throw new InvalidOperationException($"Unknown node {node.GetType().Name}"),
     };

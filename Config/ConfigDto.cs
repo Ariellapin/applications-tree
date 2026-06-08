@@ -21,4 +21,7 @@ public sealed class NodeDto
 
     [JsonPropertyName("children")]
     public List<NodeDto>? Children { get; set; }
+
+    [JsonPropertyName("iconSource")]
+    public string? IconSource { get; set; }
 }
